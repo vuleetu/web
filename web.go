@@ -23,6 +23,12 @@ import (
     "time"
 )
 
+type Log interface {
+    Println(...interface{})
+    Printf(string, ...interface{})
+    Print(...interface{})
+}
+
 type ResponseWriter interface {
     Header() http.Header
     WriteHeader(status int)
@@ -373,8 +379,9 @@ var mainServer = NewServer()
 type Server struct {
     Config *ServerConfig
     routes []route
-    Logger *log.Logger
+    Logger Log
     Env    map[string]interface{}
+    profile bool
     //save the listener so it can be closed
     l   net.Listener
 }
@@ -402,10 +409,12 @@ func (s *Server) Run(addr string) {
     s.initServer()
 
     mux := http.NewServeMux()
-    mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-    mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-    mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
-    mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+    if s.profile {
+        mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+        mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+        mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
+        mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+    }
     mux.Handle("/", s)
 
     s.Logger.Printf("web.go serving %s\n", addr)
@@ -474,6 +483,11 @@ func (s *Server) Put(route string, handler interface{}) {
     s.addRoute(route, "PUT", handler)
 }
 
+//Adds a handler for the 'HEAD' http method.
+func (s *Server) Head(route string, handler interface{}) {
+    s.addRoute(route, "HEAD", handler)
+}
+
 //Adds a handler for the 'DELETE' http method.
 func (s *Server) Delete(route string, handler interface{}) {
     s.addRoute(route, "DELETE", handler)
@@ -494,17 +508,26 @@ func Put(route string, handler interface{}) {
     mainServer.addRoute(route, "PUT", handler)
 }
 
+//Adds a handler for the 'HEAD' http method.
+func Head(route string, handler interface{}) {
+    mainServer.addRoute(route, "HEAD", handler)
+}
+
 //Adds a handler for the 'DELETE' http method.
 func Delete(route string, handler interface{}) {
     mainServer.addRoute(route, "DELETE", handler)
 }
 
-func (s *Server) SetLogger(logger *log.Logger) {
+func (s *Server) SetLogger(logger Log) {
     s.Logger = logger
 }
 
-func SetLogger(logger *log.Logger) {
+func SetLogger(logger Log) {
     mainServer.Logger = logger
+}
+
+func SetProfile(flag bool) {
+    mainServer.profile = flag
 }
 
 type ServerConfig struct {
