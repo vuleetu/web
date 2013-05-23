@@ -210,6 +210,8 @@ type responseWriter struct {
 }
 
 func (c *responseWriter) Close() {
+    f := c.ResponseWriter.(http.Flusher)
+    f.Flush()
     rwc, buf, _ := c.ResponseWriter.(http.Hijacker).Hijack()
     if buf != nil {
         buf.Flush()
