@@ -271,13 +271,25 @@ func requiresContext(handlerType reflect.Type) bool {
     return false
 }
 
+func GetClientIp(req *http.Request) string {
+    rip := req.Header.Get("X-Forwarded-For")
+    if rip == "" {
+        ips := strings.SplitN(req.RemoteAddr, ":", 2)
+        if len(ips) > 0 {
+            rip = ips[0]
+        }
+    }
+
+    return rip
+}
+
 func (s *Server) routeHandler(req *http.Request, w ResponseWriter) {
     requestPath := req.URL.Path
     ctx := Context{req, map[string]string{}, s, w}
 
     //log the request
     var logEntry bytes.Buffer
-    fmt.Fprintf(&logEntry, "\033[32;1m[REQUEST] %s %s from [%s]\033[0m", req.Method, requestPath, req.RemoteAddr)
+    fmt.Fprintf(&logEntry, "\033[32;1m[REQUEST] %s %s from [%s]\033[0m", req.Method, requestPath, GetClientIp(req))
 
     //ignore errors from ParseForm because it's usually harmless.
     req.ParseForm()
