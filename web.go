@@ -289,7 +289,7 @@ func (s *Server) routeHandler(req *http.Request, w ResponseWriter) {
 
     //log the request
     var logEntry bytes.Buffer
-    fmt.Fprintf(&logEntry, "\033[32;1m[REQUEST] %s %s from [%s]\033[0m", req.Method, requestPath, GetClientIp(req))
+    fmt.Fprintf(&logEntry, "\033[32;1m[REQUEST] %s %s from [%s] User-Agent:\033[0m", req.Method, requestPath, GetClientIp(req), req.Header["User-Agent"])
 
     //ignore errors from ParseForm because it's usually harmless.
     req.ParseForm()
