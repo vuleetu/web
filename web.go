@@ -47,6 +47,11 @@ func (ctx *Context) WriteString(content string) {
     ctx.ResponseWriter.Write([]byte(content))
 }
 
+func (ctx *Context) CloseNotify() <-chan bool {
+    notify := ctx.ResponseWriter.(*responseWriter).ResponseWriter.(http.CloseNotifier)
+    return notify.CloseNotify()
+}
+
 func (ctx *Context) Abort(status int, body string) {
     ctx.ResponseWriter.WriteHeader(status)
     ctx.ResponseWriter.Write([]byte(body))
