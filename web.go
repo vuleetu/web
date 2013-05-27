@@ -459,6 +459,7 @@ func (s *Server) Run(addr string) {
         }
 
         tlsc := tls.Config{}
+        tlsc.NextProtos = []string{"http/1.1"}
         tlsc.Certificates = []tls.Certificate{cert}
         l, err = tls.Listen("tcp", addr, &tlsc)
     } else {
