@@ -4,6 +4,7 @@ import (
     "bytes"
     "crypto/hmac"
     "crypto/sha1"
+    "crypto/tls"
     "encoding/base64"
     "fmt"
     "io/ioutil"
@@ -41,10 +42,17 @@ type Context struct {
     Params  map[string]string
     Server  *Server
     ResponseWriter
+    Status, Length int
 }
 
 func (ctx *Context) WriteString(content string) {
+    ctx.Length += len(content)
     ctx.ResponseWriter.Write([]byte(content))
+}
+
+func (ctx *Context) Write(data []byte) (int, error) {
+    ctx.Length += len(data)
+    return ctx.ResponseWriter.Write(data)
 }
 
 func (ctx *Context) CloseNotify() <-chan bool {
@@ -53,21 +61,26 @@ func (ctx *Context) CloseNotify() <-chan bool {
 }
 
 func (ctx *Context) Abort(status int, body string) {
+    ctx.Status = status
     ctx.ResponseWriter.WriteHeader(status)
+    ctx.Length += len(body)
     ctx.ResponseWriter.Write([]byte(body))
 }
 
 func (ctx *Context) Redirect(status int, url_ string) {
     ctx.ResponseWriter.Header().Set("Location", url_)
+    ctx.Status = status
     ctx.ResponseWriter.WriteHeader(status)
     ctx.ResponseWriter.Write([]byte("Redirecting to: " + url_))
 }
 
 func (ctx *Context) NotModified() {
+    ctx.Status = 304
     ctx.ResponseWriter.WriteHeader(304)
 }
 
 func (ctx *Context) NotFound(message string) {
+    ctx.Status = 404
     ctx.ResponseWriter.WriteHeader(404)
     ctx.ResponseWriter.Write([]byte(message))
 }
@@ -290,7 +303,7 @@ func GetClientIp(req *http.Request) string {
 
 func (s *Server) routeHandler(req *http.Request, w ResponseWriter) {
     requestPath := req.URL.Path
-    ctx := Context{req, map[string]string{}, s, w}
+    ctx := Context{req, map[string]string{}, s, w, 200, 0}
 
     //log the request
     var logEntry bytes.Buffer
@@ -436,11 +449,29 @@ func (s *Server) Run(addr string) {
     }
     mux.Handle("/", s)
 
-    s.Logger.Printf("web.go serving %s\n", addr)
+    var l net.Listener
+    var err error
+    if s.Config.TLSConfig != nil {
+        s.Logger.Printf("web.go serving %s [SSL]", addr)
+        cert, err := tls.LoadX509KeyPair(s.Config.TLSConfig.Cert, s.Config.TLSConfig.Key)
+        if err != nil {
+            log.Fatal("Load tls cert/key:", err)
+        }
 
-    l, err := net.Listen("tcp", addr)
+        tlsc := tls.Config{}
+        tlsc.Certificates = []tls.Certificate{cert}
+        l, err = tls.Listen("tcp", addr, &tlsc)
+    } else {
+        s.Logger.Printf("web.go serving %s", addr)
+        l, err = net.Listen("tcp", addr)
+    }
+
     if err != nil {
         log.Fatal("ListenAndServe:", err)
+    }
+
+    if l == nil {
+        log.Fatal("ListenAndServe failed")
     }
     s.l = l
     err = http.Serve(s.l, mux)
@@ -555,6 +586,12 @@ type ServerConfig struct {
     Port         int
     CookieSecret string
     RecoverPanic bool
+    TLSConfig *TLSConfig
+}
+
+type TLSConfig struct {
+    Cert string
+    Key string
 }
 
 func webTime(t time.Time) string {
