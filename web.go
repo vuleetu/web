@@ -347,7 +347,7 @@ func (s *Server) routeHandler(req *http.Request, w ResponseWriter) {
         route := s.routes[i]
         cr := route.cr
         //if the methods don't match, skip this handler (except HEAD can be used in place of GET)
-        if req.Method != route.method && !(req.Method == "HEAD" && route.method == "GET") {
+        if route.method != "" && req.Method != route.method && !(req.Method == "HEAD" && route.method == "GET") {
             continue
         }
 
@@ -523,6 +523,11 @@ func RunFcgi(addr string) {
     mainServer.RunFcgi(addr)
 }
 
+//Adds a handler for the all http method.
+func (s *Server) Handle(route string, handler interface{}) {
+    s.addRoute(route, "", handler)
+}
+
 //Adds a handler for the 'GET' http method.
 func (s *Server) Get(route string, handler interface{}) {
     s.addRoute(route, "GET", handler)
@@ -546,6 +551,11 @@ func (s *Server) Head(route string, handler interface{}) {
 //Adds a handler for the 'DELETE' http method.
 func (s *Server) Delete(route string, handler interface{}) {
     s.addRoute(route, "DELETE", handler)
+}
+
+//Adds a handler for the all http method.
+func Handle(route string, handler interface{}) {
+    mainServer.Handle(route, handler)
 }
 
 //Adds a handler for the 'GET' http method.
