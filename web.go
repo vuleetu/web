@@ -60,6 +60,10 @@ func (ctx *Context) CloseNotify() <-chan bool {
     return notify.CloseNotify()
 }
 
+func (ctx *Context) Flusher() http.Flusher {
+    return ctx.ResponseWriter.(*responseWriter).ResponseWriter.(http.Flusher)
+}
+
 func (ctx *Context) Abort(status int, body string) {
     ctx.Status = status
     ctx.ResponseWriter.WriteHeader(status)
