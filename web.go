@@ -313,13 +313,15 @@ func (s *Server) routeHandler(req *http.Request, w ResponseWriter) {
     var logEntry bytes.Buffer
     fmt.Fprintf(&logEntry, "\033[32;1m[REQUEST] %s %s from [%s] User-Agent:\033[0m", req.Method, requestPath, GetClientIp(req), req.Header["User-Agent"])
 
-    //ignore errors from ParseForm because it's usually harmless.
-    req.ParseForm()
-    if len(req.Form) > 0 {
-        for k, v := range req.Form {
-            ctx.Params[k] = v[0]
+    if !s.disableParseForm {
+        //ignore errors from ParseForm because it's usually harmless.
+        req.ParseForm()
+        if len(req.Form) > 0 {
+            for k, v := range req.Form {
+                ctx.Params[k] = v[0]
+            }
+            fmt.Fprintf(&logEntry, "\n\033[37;1mParams: %v\033[0m\n", ctx.Params)
         }
-        fmt.Fprintf(&logEntry, "\n\033[37;1mParams: %v\033[0m\n", ctx.Params)
     }
 
     ctx.Server.Logger.Print(logEntry.String())
@@ -420,6 +422,7 @@ type Server struct {
     profile bool
     //save the listener so it can be closed
     l   net.Listener
+    disableParseForm bool
 }
 
 func NewServer() *Server {
@@ -428,6 +431,11 @@ func NewServer() *Server {
         Logger: log.New(os.Stdout, "", log.Ldate|log.Ltime),
         Env:    map[string]interface{}{},
     }
+}
+
+
+func (s *Server) SetParse(flag bool) {
+    s.disableParseForm = !flag
 }
 
 func (s *Server) initServer() {
@@ -573,6 +581,10 @@ func Post(route string, handler interface{}) {
 //Adds a handler for the 'PUT' http method.
 func Put(route string, handler interface{}) {
     mainServer.addRoute(route, "PUT", handler)
+}
+
+func SetParse(flag bool) {
+    mainServer.SetParse(flag)
 }
 
 //Adds a handler for the 'HEAD' http method.
